@@ -15,9 +15,9 @@ const DemoTriage = () => {
             allow="microphone" 
             width="400px" 
             height="550px" 
-            className="border-none bg-transparent"
-            style={{ pointerEvents: 'none' }}
+            pointer-events="none"
             scrolling="no"
+            style="position: fixed; background: transparent; border:none; z-index:999"
           />
         </Card>
       </div>

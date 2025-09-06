@@ -9,13 +9,13 @@ const DemoPatient = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <Card className="w-full max-w-4xl aspect-video bg-muted flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto bg-primary rounded-full flex items-center justify-center">
-              <div className="w-0 h-0 border-l-[6px] border-l-primary-foreground border-y-[4px] border-y-transparent ml-1"></div>
-            </div>
-            <h2 className="text-xl font-semibold text-foreground">Demo Video Placeholder</h2>
-            <p className="text-muted-foreground">Video content will be added here</p>
-          </div>
+          <iframe
+            src="https://lab.anam.ai/frame/OTfUG4xnOQHzqh6QJ7UP1"
+            width="720"
+            height="480"
+            allow="microphone"
+            className="w-full h-full rounded-lg"
+          />
         </Card>
       </div>
     );

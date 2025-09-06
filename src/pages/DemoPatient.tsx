@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Navigation } from "@/components/Navigation";
 
 const DemoPatient = () => {
   const [showVideo, setShowVideo] = useState(false);
@@ -8,6 +9,7 @@ const DemoPatient = () => {
   if (showVideo) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
+        <Navigation />
         <Card className="w-full max-w-4xl aspect-video bg-muted flex items-center justify-center">
           <iframe
             src="https://lab.anam.ai/frame/OTfUG4xnOQHzqh6QJ7UP1"
@@ -23,6 +25,7 @@ const DemoPatient = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
+      <Navigation />
       <div className="text-center space-y-8">
         <div className="space-y-4">
           <h1 className="text-4xl font-bold text-foreground">Demo Patient</h1>

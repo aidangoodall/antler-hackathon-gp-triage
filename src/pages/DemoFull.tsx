@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Loader2, Phone } from "lucide-react";
+import { Navigation } from "@/components/Navigation";
 
 const DemoFull = () => {
   const [showDemo, setShowDemo] = useState(false);
@@ -30,6 +31,7 @@ const DemoFull = () => {
   if (showDemo) {
     return (
       <div className="min-h-screen bg-background p-8">
+        <Navigation />
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-4">Full Demo Experience</h1>
@@ -119,6 +121,7 @@ const DemoFull = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
+      <Navigation />
       <div className="text-center space-y-8">
         <div className="space-y-4">
           <h1 className="text-4xl font-bold text-foreground">Full Demo Experience</h1>

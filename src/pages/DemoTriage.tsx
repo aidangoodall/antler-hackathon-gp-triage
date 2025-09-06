@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Navigation } from "@/components/Navigation";
 
 const DemoTriage = () => {
   const [showWidget, setShowWidget] = useState(false);
@@ -8,6 +9,7 @@ const DemoTriage = () => {
   if (showWidget) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
+        <Navigation />
         <Card className="w-full max-w-md bg-muted flex items-center justify-center">
           <iframe 
             id="audio_iframe" 
@@ -26,6 +28,7 @@ const DemoTriage = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
+      <Navigation />
       <div className="text-center space-y-8">
         <div className="space-y-4">
           <h1 className="text-4xl font-bold text-foreground">Demo Triage</h1>

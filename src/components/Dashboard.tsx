@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Play, Phone, Clock, Activity } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Play, Phone, Clock, Activity, AlertTriangle } from "lucide-react";
 import { AudioWaveform } from "./AudioWaveform";
 import { LiveTranscript } from "./LiveTranscript";
 
@@ -205,6 +206,15 @@ export function Dashboard() {
                         </div>
                         <p className="text-sm text-muted-foreground">{call.reason}</p>
                       </div>
+
+                      {call.callerName === "Emma Davis" && (
+                        <Alert className="border-warning bg-warning/10">
+                          <AlertTriangle className="h-4 w-4 text-warning" />
+                          <AlertDescription className="text-warning-foreground">
+                            <strong>AI Alert:</strong> Signs of excessive distress detected in voice pattern. Requires attention.
+                          </AlertDescription>
+                        </Alert>
+                      )}
 
                       {call.isActive && <AudioWaveform />}
 

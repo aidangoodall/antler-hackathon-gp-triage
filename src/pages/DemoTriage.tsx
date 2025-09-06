@@ -17,7 +17,7 @@ const DemoTriage = () => {
             height="550px" 
             pointer-events="none"
             scrolling="no"
-            style="position: fixed; background: transparent; border:none; z-index:999"
+            style={{ position: "fixed", background: "transparent", border: "none", zIndex: 999 }}
           />
         </Card>
       </div>

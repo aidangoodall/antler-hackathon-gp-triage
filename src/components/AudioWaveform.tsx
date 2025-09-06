@@ -22,7 +22,6 @@ export function AudioWaveform() {
     <div className="bg-muted rounded-lg p-3">
       <div className="flex items-center gap-1 mb-2">
         <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
-        <span className="text-xs font-medium text-muted-foreground">LIVE AUDIO</span>
       </div>
       
       <div className="flex items-end justify-center gap-1 h-12">

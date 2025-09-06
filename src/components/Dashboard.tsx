@@ -209,7 +209,6 @@ export function Dashboard() {
                       {call.isActive && <AudioWaveform />}
 
                       <div>
-                        <p className="text-sm font-medium mb-2">Live Transcript:</p>
                         <LiveTranscript 
                           transcript={call.transcript} 
                           isActive={call.isActive || false}

@@ -194,15 +194,16 @@ export function Dashboard() {
 
                     <CardContent className="space-y-4">
                       <div>
-                        <p className="text-sm font-medium mb-1">Reason for call:</p>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium">Reason for call:</p>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-mono font-medium">
+                              {formatElapsedTime(call.startTime)}
+                            </span>
+                          </div>
+                        </div>
                         <p className="text-sm text-muted-foreground">{call.reason}</p>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-mono font-medium">
-                          {formatElapsedTime(call.startTime)}
-                        </span>
                       </div>
 
                       {call.isActive && <AudioWaveform />}

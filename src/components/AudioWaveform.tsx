@@ -21,14 +21,13 @@ export function AudioWaveform() {
   return (
     <div className="bg-muted rounded-lg p-3">
       
-      <div className="flex items-end justify-center gap-1 h-12">
+      <div className="flex items-end justify-center h-12">
         {waveData.map((height, index) => (
           <div
             key={index}
-            className="bg-primary rounded-sm transition-all duration-150 ease-out"
+            className="bg-primary rounded-sm transition-all duration-150 ease-out flex-1 mx-px"
             style={{
               height: `${height}px`,
-              width: '3px',
               opacity: 0.7 + (height / 60) * 0.3
             }}
           />

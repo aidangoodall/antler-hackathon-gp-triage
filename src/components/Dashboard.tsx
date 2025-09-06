@@ -207,14 +207,7 @@ export function Dashboard() {
                         <p className="text-sm text-muted-foreground">{call.reason}</p>
                       </div>
 
-                      {call.callerName === "Emma Davis" && (
-                        <Alert className="border-warning bg-warning/10">
-                          <AlertTriangle className="h-4 w-4 text-warning" />
-                          <AlertDescription className="text-warning-foreground">
-                            <strong>AI Alert:</strong> Signs of excessive distress detected in voice pattern. Requires attention.
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                     
 
                       {call.isActive && <AudioWaveform />}
 
@@ -224,6 +217,15 @@ export function Dashboard() {
                           isActive={call.isActive || false}
                         />
                       </div>
+
+                       {call.callerName === "Emma Davis" && (
+                        <Alert className="border-warning bg-warning/10">
+                          <AlertTriangle className="h-4 w-4 text-warning" />
+                          <AlertDescription className="text-warning-foreground">
+                            <strong>AI Alert:</strong> Signs of excessive distress detected in voice pattern. Requires attention.
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </CardContent>
                   </Card>
                 ))}

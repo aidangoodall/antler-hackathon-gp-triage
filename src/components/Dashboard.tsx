@@ -532,7 +532,7 @@ export function Dashboard() {
                         )}
                         
                         {call.callerName === "Lisa Brown" && (
-                          <Alert className="mt-3 border-orange-200 bg-orange-50/50">
+                          <Alert className="mt-3 border-orange-200 bg-orange-50/50 max-w-md">
                             <AlertTriangle className="h-4 w-4 text-orange-600" />
                             <AlertDescription className="text-orange-800">
                               Frequent caller, may need wellbeing support

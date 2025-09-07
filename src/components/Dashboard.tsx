@@ -523,7 +523,7 @@ export function Dashboard() {
                         <p className="text-sm">{call.reason}</p>
                         
                         {call.callerName === "James Wilson" && (
-                          <Alert className="mt-3 border-blue-200 bg-blue-50/50">
+                          <Alert className="mt-3 border-blue-200 bg-blue-50/50 max-w-md">
                             <AlertTriangle className="h-4 w-4 text-blue-600" />
                             <AlertDescription className="text-blue-800">
                               Low mood detected. Wellbeing follow-up scheduled for 10th September 2025

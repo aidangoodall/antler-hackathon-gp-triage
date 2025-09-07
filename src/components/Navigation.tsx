@@ -6,12 +6,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Home, User, Stethoscope, PlayCircle } from "lucide-react";
+import { ChevronDown, Home, User, Stethoscope, PlayCircle, Heart } from "lucide-react";
 
 const navigationItems = [
   { path: "/", label: "Home", icon: Home },
   { path: "/demo-patient", label: "Patient Demo", icon: User },
   { path: "/demo-triage", label: "Triage Demo", icon: Stethoscope },
+  { path: "/demo-wellbeing", label: "Wellbeing Demo", icon: Heart },
   { path: "/demo-full", label: "Full Demo", icon: PlayCircle },
 ];
 

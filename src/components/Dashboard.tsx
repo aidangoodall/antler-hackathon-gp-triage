@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Play, Phone, Clock, Activity, AlertTriangle } from "lucide-react";
+import { Play, Phone, Clock, Activity, AlertTriangle, Wifi, WifiOff } from "lucide-react";
 import { AudioWaveform } from "./AudioWaveform";
 import { LiveTranscript } from "./LiveTranscript";
 
@@ -17,55 +17,24 @@ interface CallData {
   severity: "low" | "medium" | "high";
   transcript: string[];
   isActive?: boolean;
+  audioData?: number[];
+}
+
+interface WebSocketMessage {
+  type: "audio" | "transcript" | "call_ended" | "call_started";
+  data?: any;
+  timestamp: string;
+}
+
+interface TranscriptData {
+  speaker: "User" | "Assistant";
+  text: string;
+  timestamp: string;
+  isFinal: boolean;
+  confidence: number;
 }
 
 const DEMO_CALLS: CallData[] = [
-  {
-    id: "1",
-    callerName: "Sarah Johnson",
-    callerPhone: "+44 7700 900123",
-    reason: "Chest pain and shortness of breath",
-    startTime: new Date(Date.now() - 180000), // 3 minutes ago
-    severity: "high",
-    transcript: [
-      "Hello, this is Sarah Johnson",
-      "I'm experiencing severe chest pain",
-      "It started about 20 minutes ago",
-      "The pain is radiating to my left arm"
-    ],
-    isActive: true
-  },
-  {
-    id: "2", 
-    callerName: "Michael Smith",
-    callerPhone: "+44 7700 900456",
-    reason: "Follow-up appointment booking",
-    startTime: new Date(Date.now() - 120000), // 2 minutes ago
-    severity: "low",
-    transcript: [
-      "Hi, I need to book a follow-up appointment",
-      "I saw Dr. Williams last week",
-      "He asked me to come back in a week"
-    ],
-    isActive: true
-  },
-  {
-    id: "3",
-    callerName: "Emma Davis",
-    callerPhone: "+44 7700 900789",
-    reason: "Persistent headaches",
-    startTime: new Date(Date.now() - 300000), // 5 minutes ago
-    severity: "medium",
-    transcript: [
-      "I've been having headaches for 3 days",
-      "They're getting worse",
-      "I've tried paracetamol but it's not helping"
-    ],
-    isActive: true
-  }
-];
-
-const PAST_CALLS: CallData[] = [
   {
     id: "4",
     callerName: "James Wilson",
@@ -88,9 +57,14 @@ const PAST_CALLS: CallData[] = [
 
 export function Dashboard() {
   const [liveCalls, setLiveCalls] = useState<CallData[]>([]);
-  const [pastCalls] = useState<CallData[]>(PAST_CALLS);
+  const [pastCalls] = useState<CallData[]>(DEMO_CALLS);
   const [demoActive, setDemoActive] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+  
+  const ws = import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8080';
+  const currentCall = useRef<CallData | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -100,9 +74,149 @@ export function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
+  const connectWebSocket = () => {
+    setConnectionStatus("connecting");
+    
+    // Try to connect to the WebSocket endpoint from the first project
+    const wsUrl = process.env.NODE_ENV === 'production' 
+      ? 'wss://your-app.azurecontainer.io' // Replace with your production URL
+      : 'ws://localhost:8080';
+    
+    ws.current = new WebSocket(wsUrl);
+
+    ws.current.onopen = () => {
+      console.log('Connected to WebSocket');
+      setIsConnected(true);
+      setConnectionStatus("connected");
+    };
+
+    ws.current.onmessage = (event) => {
+      try {
+        const message: WebSocketMessage = JSON.parse(event.data);
+        handleWebSocketMessage(message);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    ws.current.onclose = () => {
+      console.log('WebSocket connection closed');
+      setIsConnected(false);
+      setConnectionStatus("disconnected");
+      
+      // Attempt to reconnect after 3 seconds
+      setTimeout(() => {
+        if (demoActive) {
+          connectWebSocket();
+        }
+      }, 3000);
+    };
+
+    ws.current.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setIsConnected(false);
+      setConnectionStatus("disconnected");
+    };
+  };
+
+  const handleWebSocketMessage = (message: WebSocketMessage) => {
+    switch (message.type) {
+      case 'call_started':
+        // Create a new call entry
+        const newCall: CallData = {
+          id: Date.now().toString(),
+          callerName: "Live Caller",
+          callerPhone: "+44 7700 900000",
+          reason: "Live consultation in progress",
+          startTime: new Date(),
+          severity: "medium",
+          transcript: [],
+          isActive: true,
+          audioData: []
+        };
+        
+        currentCall.current = newCall;
+        setLiveCalls(prev => [newCall, ...prev.filter(call => call.id !== newCall.id)]);
+        break;
+
+      case 'audio':
+        if (currentCall.current && message.data) {
+          // Update the current call with new audio data
+          const audioArray = Array.isArray(message.data) ? message.data : [];
+          setLiveCalls(prev => prev.map(call => 
+            call.id === currentCall.current?.id 
+              ? { ...call, audioData: audioArray }
+              : call
+          ));
+        }
+        break;
+
+      case 'transcript':
+        if (currentCall.current && message.data) {
+          const transcriptData: TranscriptData = message.data;
+          
+          // Only add final transcripts to avoid duplicates
+          if (transcriptData.isFinal) {
+            const transcriptText = `${transcriptData.speaker}: ${transcriptData.text}`;
+            
+            setLiveCalls(prev => prev.map(call => 
+              call.id === currentCall.current?.id 
+                ? { 
+                    ...call, 
+                    transcript: [...call.transcript, transcriptText],
+                    // Update caller info if we learn it from the transcript
+                    callerName: call.callerName === "Live Caller" && transcriptData.speaker === "User" 
+                      ? extractNameFromTranscript(transcriptData.text) || call.callerName
+                      : call.callerName
+                  }
+                : call
+            ));
+          }
+        }
+        break;
+
+      case 'call_ended':
+        if (currentCall.current) {
+          // Move the call to past calls and mark as inactive
+          setLiveCalls(prev => prev.map(call => 
+            call.id === currentCall.current?.id 
+              ? { ...call, isActive: false }
+              : call
+          ));
+          
+          // After a delay, move to past calls
+          setTimeout(() => {
+            if (currentCall.current) {
+              const endedCall = { ...currentCall.current, isActive: false };
+              setLiveCalls(prev => prev.filter(call => call.id !== endedCall.id));
+              // Note: In a real app, you'd add to pastCalls state here
+            }
+          }, 5000);
+          
+          currentCall.current = null;
+        }
+        break;
+    }
+  };
+
+  const extractNameFromTranscript = (text: string): string | null => {
+    // Simple name extraction - could be improved with better NLP
+    const nameMatch = text.match(/(?:my name is|i'm|i am)\s+([a-zA-Z]+)/i);
+    return nameMatch ? nameMatch[1] : null;
+  };
+
   const startDemo = () => {
     setDemoActive(true);
-    setLiveCalls(DEMO_CALLS);
+    connectWebSocket();
+  };
+
+  const stopDemo = () => {
+    setDemoActive(false);
+    if (ws.current) {
+      ws.current.close();
+    }
+    setLiveCalls([]);
+    currentCall.current = null;
   };
 
   const formatElapsedTime = (startTime: Date) => {
@@ -130,6 +244,22 @@ export function Dashboard() {
     }
   };
 
+  const getConnectionIcon = () => {
+    switch (connectionStatus) {
+      case "connected": return <Wifi className="h-4 w-4 text-green-500" />;
+      case "connecting": return <Wifi className="h-4 w-4 text-yellow-500 animate-pulse" />;
+      default: return <WifiOff className="h-4 w-4 text-red-500" />;
+    }
+  };
+
+  const getConnectionText = () => {
+    switch (connectionStatus) {
+      case "connected": return "Connected to Voice System";
+      case "connecting": return "Connecting...";
+      default: return "Disconnected";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-6 py-4">
@@ -142,12 +272,25 @@ export function Dashboard() {
             </div>
           </div>
           
-          {!demoActive && (
-            <Button onClick={startDemo} className="gap-2">
-              <Play className="h-4 w-4" />
-              Begin Demo
-            </Button>
-          )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm">
+              {getConnectionIcon()}
+              <span className={connectionStatus === "connected" ? "text-green-600" : "text-muted-foreground"}>
+                {getConnectionText()}
+              </span>
+            </div>
+            
+            {!demoActive ? (
+              <Button onClick={startDemo} className="gap-2">
+                <Play className="h-4 w-4" />
+                Start Monitoring
+              </Button>
+            ) : (
+              <Button onClick={stopDemo} variant="destructive" className="gap-2">
+                Stop Monitoring
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -164,15 +307,26 @@ export function Dashboard() {
           </TabsList>
 
           <TabsContent value="live" className="mt-6">
+            {!demoActive && (
+              <Alert className="mb-6">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Click "Start Monitoring" to connect to the live voice system and begin receiving calls.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {liveCalls.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Phone className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Active Calls</h3>
+                  <h3 className="text-lg font-semibold mb-2">
+                    {demoActive ? "Waiting for Calls" : "No Active Calls"}
+                  </h3>
                   <p className="text-muted-foreground text-center">
-                    {!demoActive 
-                      ? "Click 'Begin Demo' to simulate incoming calls"
-                      : "All calls have been completed"
+                    {demoActive 
+                      ? "The system is connected and ready to receive incoming calls"
+                      : "Start monitoring to connect to the live voice system"
                     }
                   </p>
                 </CardContent>
@@ -207,8 +361,6 @@ export function Dashboard() {
                         <p className="text-sm text-muted-foreground">{call.reason}</p>
                       </div>
 
-                     
-
                       {call.isActive && <AudioWaveform />}
 
                       <div>
@@ -218,11 +370,11 @@ export function Dashboard() {
                         />
                       </div>
 
-                       {call.callerName === "Emma Davis" && (
+                      {call.transcript.some(t => t.toLowerCase().includes('pain') || t.toLowerCase().includes('emergency')) && (
                         <Alert className="border-warning bg-warning/10">
                           <AlertTriangle className="h-4 w-4 text-warning" />
                           <AlertDescription className="text-warning-foreground">
-                            <strong>AI Alert:</strong> Signs of excessive distress detected in voice pattern. Requires attention.
+                            <strong>AI Alert:</strong> Potential urgent symptoms detected. Review immediately.
                           </AlertDescription>
                         </Alert>
                       )}

@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Play, Phone, Clock, Activity, AlertTriangle, Wifi, WifiOff } from "lucide-react";
-import { AudioWaveform } from "./AudioWaveform";
 import { LiveTranscript } from "./LiveTranscript";
 
 interface CallData {
@@ -17,11 +16,11 @@ interface CallData {
   severity: "low" | "medium" | "high";
   transcript: string[];
   isActive?: boolean;
-  audioData?: number[];
+  audioAmplitude?: number;
 }
 
 interface WebSocketMessage {
-  type: "audio" | "transcript" | "call_ended" | "call_started";
+  type: "audio" | "transcript" | "call_ended";
   data?: any;
   timestamp: string;
 }
@@ -34,13 +33,61 @@ interface TranscriptData {
   confidence: number;
 }
 
+// Real-time Audio Waveform Component (matches HTML demo functionality)
+function RealTimeAudioWaveform({ amplitude = 0, isActive = false }: { amplitude?: number; isActive?: boolean }) {
+  const [animatedHeights, setAnimatedHeights] = useState([20, 20, 20, 20, 20]);
+
+  useEffect(() => {
+    if (!isActive) {
+      setAnimatedHeights([20, 20, 20, 20, 20]);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setAnimatedHeights(prev => prev.map((_, index) => {
+        // Use amplitude to influence bar heights, with some randomness
+        const baseHeight = Math.max(20, amplitude * 60 * (0.5 + Math.random() * 0.5));
+        return Math.min(60, baseHeight);
+      }));
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, [amplitude, isActive]);
+
+  if (!isActive) {
+    return (
+      <div className="bg-muted rounded-lg p-3 h-20 flex items-center justify-center">
+        <span className="text-muted-foreground text-sm">No audio data</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-muted rounded-lg p-3">
+      <div className="flex items-end justify-center h-16 gap-1">
+        {animatedHeights.map((height, index) => (
+          <div
+            key={index}
+            className="bg-primary rounded-sm transition-all duration-150 ease-out w-1"
+            style={{
+              height: `${height}px`,
+              opacity: 0.7 + (height / 60) * 0.3,
+              animationDelay: `${index * 0.1}s`
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const DEMO_CALLS: CallData[] = [
   {
     id: "4",
     callerName: "James Wilson",
     callerPhone: "+44 7700 900321",
     reason: "Prescription renewal",
-    startTime: new Date(Date.now() - 3600000), // 1 hour ago
+    startTime: new Date(Date.now() - 3600000),
     severity: "low",
     transcript: ["Need to renew my blood pressure medication", "Same dosage as before"],
   },
@@ -49,7 +96,7 @@ const DEMO_CALLS: CallData[] = [
     callerName: "Lisa Brown",
     callerPhone: "+44 7700 900654",
     reason: "Severe allergic reaction",
-    startTime: new Date(Date.now() - 7200000), // 2 hours ago
+    startTime: new Date(Date.now() - 7200000),
     severity: "high",
     transcript: ["Allergic reaction to new medication", "Face is swelling", "Difficulty breathing"],
   }
@@ -63,8 +110,9 @@ export function Dashboard() {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
   
-  const ws = import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8080';
+  const ws = useRef<WebSocket | null>(null);
   const currentCall = useRef<CallData | null>(null);
+  const hasActiveCall = useRef<boolean>(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -74,135 +122,204 @@ export function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const connectWebSocket = () => {
+  const connectWebSocket = async () => {
     setConnectionStatus("connecting");
     
-    // Try to connect to the WebSocket endpoint from the first project
-    const wsUrl = process.env.NODE_ENV === 'production' 
-      ? 'wss://your-app.azurecontainer.io' // Replace with your production URL
-      : 'ws://localhost:8080';
-    
-    ws.current = new WebSocket(wsUrl);
-
-    ws.current.onopen = () => {
-      console.log('Connected to WebSocket');
-      setIsConnected(true);
-      setConnectionStatus("connected");
-    };
-
-    ws.current.onmessage = (event) => {
-      try {
-        const message: WebSocketMessage = JSON.parse(event.data);
-        handleWebSocketMessage(message);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
-
-    ws.current.onclose = () => {
-      console.log('WebSocket connection closed');
-      setIsConnected(false);
-      setConnectionStatus("disconnected");
+    try {
+      let wsUrl = 'wss://gp-surgery-app.kindhill-4b358ea4.uksouth.azurecontainerapps.io';
       
-      // Attempt to reconnect after 3 seconds
-      setTimeout(() => {
-        if (demoActive) {
-          connectWebSocket();
-        }
-      }, 3000);
-    };
+      try {
+        const serverUrl = 'https://gp-surgery-app.kindhill-4b358ea4.uksouth.azurecontainerapps.io';
+        const response = await fetch(`${serverUrl}/api/config`);
+        const config = await response.json();
+        wsUrl = config.downstreamWebSocketUrl;
+        console.log('Using WebSocket URL:', wsUrl);
+      } catch (error) {
+        console.error('Failed to get WebSocket URL from config, using default:', error);
+      }
+      
+      ws.current = new WebSocket(wsUrl);
 
-    ws.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setIsConnected(false);
+      ws.current.onopen = () => {
+        console.log('Connected to WebSocket');
+        setIsConnected(true);
+        setConnectionStatus("connected");
+        // Don't create a call here - wait for actual audio/transcript data
+      };
+
+      ws.current.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          handleWebSocketMessage(message);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.current.onclose = () => {
+        console.log('WebSocket connection closed');
+        setIsConnected(false);
+        setConnectionStatus("disconnected");
+        hasActiveCall.current = false;
+        
+        // Mark current call as inactive if exists
+        if (currentCall.current) {
+          setLiveCalls(prev => prev.map(call => 
+            call.id === currentCall.current?.id 
+              ? { ...call, isActive: false }
+              : call
+          ));
+        }
+        
+        // Auto-reconnect if still monitoring
+        if (demoActive) {
+          setTimeout(() => {
+            connectWebSocket();
+          }, 3000);
+        }
+      };
+
+      ws.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+        setConnectionStatus("disconnected");
+      };
+
+    } catch (error) {
+      console.error('Failed to connect:', error);
       setConnectionStatus("disconnected");
-    };
+    }
+  };
+
+  const calculateAmplitude = (audioData: number[]): number => {
+    if (!audioData || audioData.length === 0) return 0;
+    
+    const audioArray = new Int16Array(audioData);
+    let sum = 0;
+    for (let i = 0; i < audioArray.length; i++) {
+      sum += Math.abs(audioArray[i]);
+    }
+    return sum / audioArray.length / 32768; // Normalize to 0-1
+  };
+
+  const createCallIfNeeded = (): CallData => {
+    if (!currentCall.current && !hasActiveCall.current) {
+      const newCall: CallData = {
+        id: Date.now().toString(),
+        callerName: "Live Caller",
+        callerPhone: "+44 7700 900000",
+        reason: "Live consultation in progress",
+        startTime: new Date(),
+        severity: "medium",
+        transcript: [],
+        isActive: true,
+        audioAmplitude: 0
+      };
+      
+      currentCall.current = newCall;
+      hasActiveCall.current = true;
+      setLiveCalls([newCall]);
+      
+      return newCall;
+    }
+    return currentCall.current!;
   };
 
   const handleWebSocketMessage = (message: WebSocketMessage) => {
     switch (message.type) {
-      case 'call_started':
-        // Create a new call entry
-        const newCall: CallData = {
-          id: Date.now().toString(),
-          callerName: "Live Caller",
-          callerPhone: "+44 7700 900000",
-          reason: "Live consultation in progress",
-          startTime: new Date(),
-          severity: "medium",
-          transcript: [],
-          isActive: true,
-          audioData: []
-        };
-        
-        currentCall.current = newCall;
-        setLiveCalls(prev => [newCall, ...prev.filter(call => call.id !== newCall.id)]);
-        break;
-
       case 'audio':
-        if (currentCall.current && message.data) {
-          // Update the current call with new audio data
-          const audioArray = Array.isArray(message.data) ? message.data : [];
-          setLiveCalls(prev => prev.map(call => 
-            call.id === currentCall.current?.id 
-              ? { ...call, audioData: audioArray }
-              : call
+        if (message.data && message.data.length > 0) {
+          // Create call on first audio data (indicates active call)
+          const call = createCallIfNeeded();
+          
+          // Calculate amplitude for real-time visualization
+          const amplitude = calculateAmplitude(message.data);
+          
+          setLiveCalls(prev => prev.map(callItem => 
+            callItem.id === call.id 
+              ? { ...callItem, audioAmplitude: amplitude, isActive: true }
+              : callItem
           ));
         }
         break;
 
       case 'transcript':
-        if (currentCall.current && message.data) {
+        if (message.data) {
           const transcriptData: TranscriptData = message.data;
           
-          // Only add final transcripts to avoid duplicates
+          // Create call on first transcript (indicates active call)
+          const call = createCallIfNeeded();
+          
+          // Only process final transcripts (same as HTML demo)
           if (transcriptData.isFinal) {
-            const transcriptText = `${transcriptData.speaker}: ${transcriptData.text}`;
+            console.log('Transcript received:', transcriptData.text);
             
-            setLiveCalls(prev => prev.map(call => 
-              call.id === currentCall.current?.id 
+            setLiveCalls(prev => prev.map(callItem => 
+              callItem.id === call.id 
                 ? { 
-                    ...call, 
-                    transcript: [...call.transcript, transcriptText],
-                    // Update caller info if we learn it from the transcript
-                    callerName: call.callerName === "Live Caller" && transcriptData.speaker === "User" 
-                      ? extractNameFromTranscript(transcriptData.text) || call.callerName
-                      : call.callerName
+                    ...callItem, 
+                    transcript: [...callItem.transcript, `${transcriptData.speaker}: ${transcriptData.text}`],
+                    // Update caller info if we learn it from transcript
+                    callerName: callItem.callerName === "Live Caller" && transcriptData.speaker === "User" 
+                      ? extractNameFromTranscript(transcriptData.text) || callItem.callerName
+                      : callItem.callerName,
+                    // Update reason based on transcript content
+                    reason: callItem.reason === "Live consultation in progress" 
+                      ? extractReasonFromTranscript([...callItem.transcript, `${transcriptData.speaker}: ${transcriptData.text}`]) || callItem.reason
+                      : callItem.reason
                   }
-                : call
+                : callItem
             ));
           }
         }
         break;
 
       case 'call_ended':
+        console.log('Call ended signal received');
+        hasActiveCall.current = false;
+        
         if (currentCall.current) {
-          // Move the call to past calls and mark as inactive
           setLiveCalls(prev => prev.map(call => 
             call.id === currentCall.current?.id 
-              ? { ...call, isActive: false }
+              ? { 
+                  ...call, 
+                  isActive: false, 
+                  audioAmplitude: 0,
+                  transcript: [...call.transcript, "--- Call Ended ---"] 
+                }
               : call
           ));
           
-          // After a delay, move to past calls
+          // Move to past calls after delay
           setTimeout(() => {
             if (currentCall.current) {
-              const endedCall = { ...currentCall.current, isActive: false };
-              setLiveCalls(prev => prev.filter(call => call.id !== endedCall.id));
-              // Note: In a real app, you'd add to pastCalls state here
+              setLiveCalls(prev => prev.filter(call => call.id !== currentCall.current?.id));
             }
+            currentCall.current = null;
           }, 5000);
-          
-          currentCall.current = null;
         }
         break;
+
+      default:
+        console.log('Unknown message type:', message.type, message);
     }
   };
 
   const extractNameFromTranscript = (text: string): string | null => {
-    // Simple name extraction - could be improved with better NLP
     const nameMatch = text.match(/(?:my name is|i'm|i am)\s+([a-zA-Z]+)/i);
     return nameMatch ? nameMatch[1] : null;
+  };
+
+  const extractReasonFromTranscript = (transcripts: string[]): string | null => {
+    const allText = transcripts.join(' ').toLowerCase();
+    
+    if (allText.includes('chest pain') || allText.includes('heart')) return 'Chest pain consultation';
+    if (allText.includes('headache') || allText.includes('head')) return 'Headache assessment';
+    if (allText.includes('appointment') || allText.includes('book')) return 'Appointment booking';
+    if (allText.includes('prescription') || allText.includes('medication')) return 'Prescription inquiry';
+    if (allText.includes('pain')) return 'Pain assessment';
+    
+    return null;
   };
 
   const startDemo = () => {
@@ -217,6 +334,7 @@ export function Dashboard() {
     }
     setLiveCalls([]);
     currentCall.current = null;
+    hasActiveCall.current = false;
   };
 
   const formatElapsedTime = (startTime: Date) => {
@@ -325,7 +443,7 @@ export function Dashboard() {
                   </h3>
                   <p className="text-muted-foreground text-center">
                     {demoActive 
-                      ? "The system is connected and ready to receive incoming calls"
+                      ? "Connected and ready - call cards will appear when calls begin"
                       : "Start monitoring to connect to the live voice system"
                     }
                   </p>
@@ -361,7 +479,10 @@ export function Dashboard() {
                         <p className="text-sm text-muted-foreground">{call.reason}</p>
                       </div>
 
-                      {call.isActive && <AudioWaveform />}
+                      <RealTimeAudioWaveform 
+                        amplitude={call.audioAmplitude || 0} 
+                        isActive={call.isActive || false} 
+                      />
 
                       <div>
                         <LiveTranscript 
@@ -370,7 +491,7 @@ export function Dashboard() {
                         />
                       </div>
 
-                      {call.transcript.some(t => t.toLowerCase().includes('pain') || t.toLowerCase().includes('emergency')) && (
+                      {call.transcript.some(t => t.toLowerCase().includes('pain') || t.toLowerCase().includes('emergency') || t.toLowerCase().includes('urgent')) && (
                         <Alert className="border-warning bg-warning/10">
                           <AlertTriangle className="h-4 w-4 text-warning" />
                           <AlertDescription className="text-warning-foreground">

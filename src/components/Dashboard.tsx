@@ -521,6 +521,24 @@ export function Dashboard() {
                         </div>
                         <p className="text-sm text-muted-foreground mb-1">{call.callerPhone}</p>
                         <p className="text-sm">{call.reason}</p>
+                        
+                        {call.callerName === "James Wilson" && (
+                          <Alert className="mt-3 border-blue-200 bg-blue-50/50">
+                            <AlertTriangle className="h-4 w-4 text-blue-600" />
+                            <AlertDescription className="text-blue-800">
+                              Low mood detected. Wellbeing follow-up scheduled for 10th September 2025
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
+                        {call.callerName === "Lisa Brown" && (
+                          <Alert className="mt-3 border-orange-200 bg-orange-50/50">
+                            <AlertTriangle className="h-4 w-4 text-orange-600" />
+                            <AlertDescription className="text-orange-800">
+                              Frequent caller, may need wellbeing support
+                            </AlertDescription>
+                          </Alert>
+                        )}
                       </div>
                       <div className="text-right text-sm text-muted-foreground">
                         {call.startTime.toLocaleTimeString()}
